@@ -796,10 +796,13 @@ module Sinatra
       # add a filter
       def add_filter(type, condition = nil, &block)
         return filters[type] << block unless condition
-        original_block, pattern = block, compile(condition).first
+        pattern, method_name = compile(condition).first, "#{type} #{condition}"
+        define_method(method_name, &block)
+        unbound = instance_method method_name
+        remove_method method_name
         add_filter(type) do
           next unless match = pattern.match(request.path_info)
-          original_block.call(*match.captures.to_a)
+          unbound.bind(self).call(*match.captures.to_a)
         end
       end
 
