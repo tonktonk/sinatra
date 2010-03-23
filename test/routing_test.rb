@@ -69,6 +69,38 @@ class RoutingTest < Test::Unit::TestCase
     assert_equal 'pass', response.headers['X-Cascade']
   end
 
+  it "405s if bad_method_header is enabled and the wrong http verb is used" do
+    mock_app do
+      enable :bad_method_header
+      post('/foo') { }
+    end
+    get '/foo'
+    assert_equal 405, status
+    assert_equal 'POST', response.headers['Allow']
+  end
+
+  it "does not block routes defined later when bad_method_header is enabled" do
+    mock_app do
+      enable :bad_method_header
+      post('/foo') { }
+      get('/foo') { 'foo' }
+    end
+    get '/foo'
+    assert response.ok?
+    assert_equal 'foo', response.body
+  end
+
+  it "405s all available http verbs if bad_method_header is enabled" do
+    mock_app do
+      enable :bad_method_header
+      get("/f*") { }
+      put("/*o") { }
+    end
+    post '/foo'
+    assert_equal 405, status
+    assert_equal ['GET', 'HEAD', 'PUT'], response.headers['Allow'].split(', ').sort
+  end
+
   it "overrides the content-type in error handlers" do
     mock_app {
       before { content_type 'text/plain' }

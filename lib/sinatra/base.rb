@@ -534,6 +534,14 @@ module Sinatra
       end
     end
 
+    def bad_method(verb)
+      (@bad_method_verbs ||= []) << verb
+      pass do
+        response['Allow'] = @bad_method_verbs.join ', '
+        halt 405, "Bad method"
+      end
+    end
+
     # Attempt to serve static files from public directory. Throws :halt when
     # a matching file is found, returns nil otherwise.
     def static!
@@ -847,7 +855,14 @@ module Sinatra
       def head(path, opts={}, &bk);   route 'HEAD',   path, opts, &bk end
 
     private
-      def route(verb, path, options={}, &block)
+      def route(verb, path, options={}, is_bad_method = false, &block)
+        if bad_method_header? and not is_bad_method
+          %w[GET PUT POST DELETE HEAD].each do |other_verb|
+            next if other_verb == verb
+            route(other_verb, path, options, true) { bad_method verb }
+          end
+        end
+
         # Because of self.options.host
         host_name(options.delete(:bind)) if options.key?(:host)
 
@@ -1046,6 +1061,7 @@ module Sinatra
     set :sessions, false
     set :logging, false
     set :method_override, false
+    set :bad_method_header, false
 
     class << self
       alias_method :methodoverride?, :method_override?
