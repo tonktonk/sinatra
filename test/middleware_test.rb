@@ -77,4 +77,22 @@ class MiddlewareTest < Test::Unit::TestCase
     assert ok?
     assert_equal "oof/", body
   end
+  
+  it "takes an optional pattern for middleware, applying it only to requests matching it" do
+    @app.use MockMiddleware
+    @app.middleware("/foo/*") { |app, env| [200, {'Content-Type' => 'text/plain'}, "42"] }
+    get '/bar'
+    assert ok?
+    assert_not_equal "42", body
+    get '/foo/bar'
+    assert ok?
+    assert_equal "42", body
+  end
+  
+  it "fills a hash called params for middleware dsl pattern matching" do
+    @app.use MockMiddleware
+    @app.middleware("/foo/:value") { |app, env| [200, {'Content-Type' => 'text/plain'}, params['value']] }
+    get '/foo/bar'
+    assert_equal 'bar', body
+  end
 end

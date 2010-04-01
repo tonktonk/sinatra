@@ -476,21 +476,7 @@ module Sinatra
         routes.each do |pattern, keys, conditions, block|
           if match = pattern.match(path)
             values = match.captures.to_a
-            params =
-              if keys.any?
-                keys.zip(values).inject({}) do |hash,(k,v)|
-                  if k == 'splat'
-                    (hash[k] ||= []) << v
-                  else
-                    hash[k] = v
-                  end
-                  hash
-                end
-              elsif values.any?
-                {'captures' => values}
-              else
-                {}
-              end
+            params = self.class.construct_params(keys, values)
             @params = original_params.merge(params)
             @block_params = values
 
@@ -683,8 +669,8 @@ module Sinatra
       end
 
       # Middleware used in this class and all superclasses.
-      def middleware(&block)
-        return rack_middleware(&block) if block
+      def middleware(path = nil, &block)
+        return rack_middleware(path, &block) if path or block
         if superclass.respond_to?(:middleware)
           superclass.middleware + @middleware
         else
@@ -799,13 +785,45 @@ module Sinatra
         @conditions << block
       end
 
+      # Construct params hash from a list of keys and a list of values.
+      def construct_params(keys, values)
+        if keys.any?
+          keys.zip(values).inject({}) do |hash,(k,v)|
+            if k == 'splat'
+              (hash[k] ||= []) << v
+            else
+              hash[k] = v
+            end
+            hash
+          end
+        elsif values.any?
+          {'captures' => values}
+        else
+          {}
+        end
+      end
+
    private
-      def rack_middleware(&block)
-        use Class.new {
+      def rack_middleware(path = nil, &block)
+        middleware = Class.new do
           def initialize(app) @app = app end
           define_method(:call!, &block)
-          def call(env) call!(@app, env) end
-        }
+        end
+        if path
+          base = self
+          pattern, keys = compile path
+          middleware.class_eval do
+            attr_reader :params
+            define_method(:call) do |env|
+              return @app.call(env) unless match = pattern.match(env['PATH_INFO'])
+              @params = base.construct_params keys, match.captures.to_a
+              call! @app, env
+            end
+          end
+        else
+          middleware.class_eval { def call(env) call!(@app, env) end }
+        end
+        use middleware
       end
 
       def host_name(pattern)
