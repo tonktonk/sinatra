@@ -65,4 +65,16 @@ class MiddlewareTest < Test::Unit::TestCase
     assert_equal "/FOO", body
     assert_equal "UpcaseMiddleware", response['X-Tests']
   end
+
+  it "allowes defining middleware via #middleware { ... }" do
+    @app.middleware do |app, env|
+      env['test.ran'] ||= []
+      env['PATH_INFO'] = env['PATH_INFO'].downcase
+      status, header, body = app.call(env)
+      [status, header, body.to_s.reverse]
+    end
+    get "/FOO"
+    assert ok?
+    assert_equal "oof/", body
+  end
 end

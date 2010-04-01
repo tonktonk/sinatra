@@ -683,7 +683,8 @@ module Sinatra
       end
 
       # Middleware used in this class and all superclasses.
-      def middleware
+      def middleware(&block)
+        return rack_middleware(&block) if block
         if superclass.respond_to?(:middleware)
           superclass.middleware + @middleware
         else
@@ -799,6 +800,14 @@ module Sinatra
       end
 
    private
+      def rack_middleware(&block)
+        use Class.new {
+          def initialize(app) @app = app end
+          define_method(:call!, &block)
+          def call(env) call!(@app, env) end
+        }
+      end
+
       def host_name(pattern)
         condition { pattern === request.host }
       end
