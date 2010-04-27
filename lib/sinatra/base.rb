@@ -796,7 +796,7 @@ module Sinatra
       # add a filter
       def add_filter(type, path = nil, &block)
         return filters[type] << block unless path
-        unbound_method, pattern = generate_route(type, path, &block)
+        unbound_method, pattern = compile!(type, path, &block)
         add_filter(type) do
           next unless match = pattern.match(request.path_info)
           unbound_method.bind(self).call(*match.captures.to_a)
@@ -864,7 +864,7 @@ module Sinatra
 
         options.each {|option, args| send(option, *args)}
 
-        unbound_method, pattern, keys = generate_route(verb, path, &block)
+        unbound_method, pattern, keys = compile!(verb, path, &block)
         conditions, @conditions = @conditions, []
 
         block =
@@ -884,7 +884,7 @@ module Sinatra
         extensions.each { |e| e.send(name, *args) if e.respond_to?(name) }
       end
 
-      def generate_route(verb, path, &block)
+      def compile!(verb, path, &block)
         method_name = "#{verb} #{path}"
         define_method(method_name, &block)
         unbound_method = instance_method method_name
