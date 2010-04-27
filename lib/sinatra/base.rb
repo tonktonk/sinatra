@@ -782,27 +782,24 @@ module Sinatra
       # Define a before filter; runs before all requests within the same
       # context as route handlers and may access/modify the request and
       # response.
-      def before(condition = nil, &block)
-        add_filter(:before, condition, &block)
+      def before(path = nil, &block)
+        add_filter(:before, path, &block)
       end
 
       # Define an after filter; runs after all requests within the same
       # context as route handlers and may access/modify the request and
       # response.
-      def after(condition = nil, &block)
-        add_filter(:after, condition, &block)
+      def after(path = nil, &block)
+        add_filter(:after, path, &block)
       end
       
       # add a filter
-      def add_filter(type, condition = nil, &block)
-        return filters[type] << block unless condition
-        pattern, method_name = compile(condition).first, "#{type} #{condition}"
-        define_method(method_name, &block)
-        unbound = instance_method method_name
-        remove_method method_name
+      def add_filter(type, path = nil, &block)
+        return filters[type] << block unless path
+        unbound_method, pattern = generate_route(type, path, &block)
         add_filter(type) do
           next unless match = pattern.match(request.path_info)
-          unbound.bind(self).call(*match.captures.to_a)
+          unbound_method.bind(self).call(*match.captures.to_a)
         end
       end
 
@@ -867,11 +864,9 @@ module Sinatra
 
         options.each {|option, args| send(option, *args)}
 
-        pattern, keys = compile(path)
+        unbound_method, pattern, keys = generate_route(verb, path, &block)
         conditions, @conditions = @conditions, []
 
-        define_method "#{verb} #{path}", &block
-        unbound_method = instance_method("#{verb} #{path}")
         block =
           if block.arity != 0
             proc { unbound_method.bind(self).call(*@block_params) }
@@ -887,6 +882,14 @@ module Sinatra
 
       def invoke_hook(name, *args)
         extensions.each { |e| e.send(name, *args) if e.respond_to?(name) }
+      end
+
+      def generate_route(verb, path, &block)
+        method_name = "#{verb} #{path}"
+        define_method(method_name, &block)
+        unbound_method = instance_method method_name
+        remove_method method_name
+        [unbound_method, *compile(path)]
       end
 
       def compile(path)
