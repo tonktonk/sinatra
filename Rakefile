@@ -1,6 +1,7 @@
 require 'rake/clean'
 require 'rake/testtask'
 require 'fileutils'
+require 'date'
 
 task :default => :test
 task :spec => :test
@@ -22,7 +23,7 @@ namespace :test do
   desc 'Mesures test coverage'
   task :coverage do
     rm_f "coverage"
-    rcov = "rcov --text-summary --test-unit-only -Ilib"
+    rcov = "rcov --text-summary -Ilib"
     system("#{rcov} --no-html --no-color test/*_test.rb")
   end
 end
