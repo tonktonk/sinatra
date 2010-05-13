@@ -26,7 +26,10 @@ module Sinatra
   class Request < Rack::Request
     # Returns an array of acceptable media types for the response
     def accept
-      @env['HTTP_ACCEPT'].to_s.split(',').map { |a| a.split(';')[0].strip }
+      @accept ||= @env['HTTP_ACCEPT'].to_s.split(',').
+        map { |a| a.split(';q=') << 1 }.
+        sort_by { |a| (a[1] || 1).to_f }.
+        reverse.map { |a| a.first }
     end
 
     def secure?

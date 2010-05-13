@@ -21,6 +21,11 @@ class RequestTest < Test::Unit::TestCase
     assert request.secure?
   end
 
+  it 'sorts HTTP_ACCEPT by q' do
+    request = Sinatra::Request.new 'HTTP_ACCEPT' => 'text/plain;q=0.1,text/css;q=2.5,text/html'
+    assert_equal request.accept, %w[text/css text/html text/plain]
+  end
+
   it 'is not secure when the url scheme is http' do
     request = Sinatra::Request.new('rack.url_scheme' => 'http')
     assert !request.secure?
